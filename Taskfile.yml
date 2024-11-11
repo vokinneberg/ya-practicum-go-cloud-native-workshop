@@ -1,0 +1,22 @@
+version: '3'
+
+vars:
+  VERSION:
+    sh: git rev-parse --short HEAD
+
+tasks:
+  build:
+    cmds:
+      - CGO_ENABLED=0 go build -ldflags="-s -w -X 'github.com/vokinneberg/ya-practicum-go-cloud-native-workshop/cmd/shortener/internal/pkg/config.Config.Version=${VERSION}'" -o bin/shortener cmd/shortener/main.go
+
+  run:
+    cmds:
+      - go run cmd/shortener/main.go
+
+  lint:
+    cmds:
+      - golangci-lint run
+
+  test:
+    cmds:
+      - go test -v ./...
