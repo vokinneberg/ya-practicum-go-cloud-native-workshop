@@ -3,6 +3,7 @@ package logging
 import (
 	"io"
 
+	"github.com/vokinneberg/ya-practicum-go-cloud-native-workshop/internal/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -14,20 +15,20 @@ var levels = map[string]zapcore.Level{
 	"error": zapcore.ErrorLevel,
 }
 
-func New(appName, level, environment, version string, logWriter io.Writer) *zap.Logger {
+func New(cfg *config.Config, logWriter io.Writer) *zap.Logger {
 	logLevel := zap.NewAtomicLevel()
-	cfg := encoderConfig()
+	encoderCfg := encoderConfig()
 
 	logger := zap.New(zapcore.NewCore(
-		zapcore.NewJSONEncoder(cfg),
+		zapcore.NewJSONEncoder(encoderCfg),
 		zapcore.Lock(zapcore.AddSync(logWriter)),
 		logLevel,
 	), zap.AddStacktrace(zapcore.ErrorLevel))
 
-	logger = logger.Named(appName)
+	logger = logger.Named(cfg.AppName)
 
-	setLevel(level, &logLevel)
-	logger = logger.With(zap.String("version", version), zap.String("environment", environment))
+	setLevel(cfg.LogLevel, &logLevel)
+	logger = logger.With(zap.String("version", cfg.Version), zap.String("environment", cfg.Environment))
 	return logger
 }
 

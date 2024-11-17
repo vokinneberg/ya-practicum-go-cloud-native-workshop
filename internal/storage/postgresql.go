@@ -3,46 +3,62 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
+
+	"github.com/lib/pq"
 )
 
 const (
-	createShortURLQuery = `INSERT INTO urls (original_url, short_url) VALUES ($1, $2) RETURNING short_url`
+	createShortURLQuery = `INSERT INTO urls (original_url, short_url) VALUES ($1, $2) ON CONFLICT (original_url) DO NOTHING`
 	getOriginalURLQuery = `SELECT original_url FROM urls WHERE short_url = $1`
 )
 
+var (
+	ErrNotFound  = errors.New("short URL not found")
+	ErrDuplicate = errors.New("short URL already exists")
+)
+
 type PostgresStorage struct {
-	db    *sql.DB
-	stmts map[string]*sql.Stmt
+	db                 *sql.DB
+	createShortURLStmt *sql.Stmt
+	getOriginalURLStmt *sql.Stmt
 }
 
 func NewPostgresStorage(db *sql.DB) (*PostgresStorage, error) {
-	statements := make(map[string]*sql.Stmt)
 	createShortURLStmt, err := db.Prepare(createShortURLQuery)
 	if err != nil {
 		return nil, err
 	}
-	statements["createShortURL"] = createShortURLStmt
 
 	getOriginalURLStmt, err := db.Prepare(getOriginalURLQuery)
 	if err != nil {
 		return nil, err
 	}
-	statements["getOriginalURL"] = getOriginalURLStmt
 
-	return &PostgresStorage{db: db, stmts: statements}, nil
+	return &PostgresStorage{
+		db:                 db,
+		createShortURLStmt: createShortURLStmt,
+		getOriginalURLStmt: getOriginalURLStmt,
+	}, nil
 }
 
-func (ps *PostgresStorage) CreateShortURL(ctx context.Context, originalURL string) (string, error) {
-	var shortURL string
-	if err := ps.stmts["createShortURL"].QueryRowContext(ctx, originalURL, shortURL).Scan(&shortURL); err != nil {
-		return "", err
+func (ps *PostgresStorage) CreateShortURL(ctx context.Context, originalURL string, shortURL string) error {
+	_, err := ps.createShortURLStmt.ExecContext(ctx, originalURL, shortURL)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			return ErrDuplicate
+		}
+		return err
 	}
-	return shortURL, nil
+	return nil
 }
 
 func (ps *PostgresStorage) GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
-	if err := ps.stmts["getOriginalURL"].QueryRowContext(ctx, shortURL).Scan(&originalURL); err != nil {
+	if err := ps.getOriginalURLStmt.QueryRowContext(ctx, shortURL).Scan(&originalURL); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
 		return "", err
 	}
 	return originalURL, nil

@@ -51,6 +51,7 @@ hideInToc: true
 ---
 layout: image-right
 image: ./cloudnative-apps-what.jpg
+title: 🌥️ Почему Cloud Native?
 ---
 
 ## 🌥️ Почему Cloud Native?
@@ -118,6 +119,7 @@ hideInToc: true
 
 ---
 layout: two-cols
+title: ☸️ Основы разработки в Kubernetes
 ---
 
 ## ☸️ Основы разработки в Kubernetes
@@ -268,12 +270,14 @@ graph LR
 
 ---
 layout: center
+title: 🤔 Вопросы?
 ---
 
  ## 🤔 Вопросы?
 
 ---
 layout: center
+title: 📚 Источники
 ---
 
 ## 📚 Источники
