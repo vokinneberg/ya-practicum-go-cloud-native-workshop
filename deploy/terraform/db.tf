@@ -78,7 +78,7 @@ resource "kubernetes_stateful_set" "postgres" {
 
           liveness_probe {
             exec {
-              command = ["pg_isready", "-U", "admin"]
+              command = ["pg_isready", "-U", "postgres"]
             }
             initial_delay_seconds = 30
             period_seconds        = 10
@@ -86,7 +86,7 @@ resource "kubernetes_stateful_set" "postgres" {
 
           readiness_probe {
             exec {
-              command = ["pg_isready", "-U", "admin"]
+              command = ["pg_isready", "-U", "postgres"]
             }
             initial_delay_seconds = 10
             period_seconds        = 5

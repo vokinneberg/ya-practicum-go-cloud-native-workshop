@@ -55,6 +55,12 @@ tasks:
       - minikube addons enable ingress
       - minikube addons enable metrics-server
 
+  build_migrations_image:
+    desc: "Build migrations Docker image"
+    dir: db
+    cmds:
+      - eval $(minikube docker-env) && docker build -t ya-paraktikum-go-cloud-native-workshop-shortener-db-migrations:{{.VERSION}} .
+
   # Task to build Docker image within Minikube Docker environment
   build_image:
     desc: "Build local Docker image in Minikube environment"
@@ -83,6 +89,7 @@ tasks:
       - task: install_kubectl
       - task: install_terraform
       - task: start_minikube
+      - task: build_migrations_image
       - task: build_image
       - task: apply_terraform
       - task: reset_docker_env
@@ -131,5 +138,7 @@ tasks:
 
   # Task to build migrations Docker image
   docker-build-migrations:
+    desc: "Build migrations Docker image"
+    dir: db
     cmds:
-      - docker build -t db-migrations:{{.VERSION}} -f db/Dockerfile .
+      - docker build -t ya-paraktikum-go-cloud-native-workshop-shortener-db-migrations:{{.VERSION}} -f Dockerfile .

@@ -13,11 +13,11 @@ resource "kubernetes_config_map" "shortener_config" {
 
   data = {
     APP_NAME        = "shortener"
-    BASE_URL        = "http://localhost:8080"
+    BASE_URL        = "http://shortener.minikube"
     DATABASE_DSN    = "postgres://postgres:${var.postgres_password}@${kubernetes_service.postgres_service.metadata[0].name}:${kubernetes_service.postgres_service.spec[0].port[0].port}/shortener?sslmode=disable"
     ENVIRONMENT     = "development"
     LOG_LEVEL       = "info"
-    RUN_MIGRATIONS  = "true"
+    RUN_MIGRATIONS  = "false"
     SERVER_ADDRESS  = ":8080"
   }
 }
@@ -53,7 +53,7 @@ resource "kubernetes_deployment" "shortener" {
           name  = "shortener-container"
           image = "ya-paraktikum-go-cloud-native-workshop-shortener:${var.app_version}"
           port {
-            container_port = 80
+            container_port = 8080
           }
 
           env_from {
@@ -77,7 +77,7 @@ resource "kubernetes_deployment" "shortener" {
           liveness_probe {
             http_get {
               path = "/healthz"
-              port = 80
+              port = 8080
 
               http_header {
                 name = "User-Agent"
@@ -92,7 +92,7 @@ resource "kubernetes_deployment" "shortener" {
           readiness_probe {
             http_get {
               path = "/readyz"
-              port = 80
+              port = 8080
 
               http_header {
                 name = "User-Agent"
@@ -120,7 +120,7 @@ resource "kubernetes_service" "shortener_service" {
     }
     port {
       port        = 80
-      target_port = 80
+      target_port = 8080
     }
     type = "ClusterIP"
   }

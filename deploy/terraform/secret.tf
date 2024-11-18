@@ -4,7 +4,7 @@ resource "kubernetes_secret" "postgres_secret" {
     namespace = kubernetes_namespace.ya_paraktikum_go_cloud_native.metadata[0].name
   }
   data = {
-    pg_password = base64encode(var.postgres_password)
+    pg_password = var.postgres_password
   }
   type = "Opaque"
 }
