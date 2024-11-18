@@ -1,0 +1,143 @@
+version: '3'
+
+vars:
+  VERSION:
+    sh: git rev-parse --short HEAD
+
+tasks:
+  # Task to check and install Minikube
+  install_minikube:
+    desc: "Install Minikube if it's not already installed"
+    cmds:
+      - |
+        if ! command -v minikube &> /dev/null; then
+          echo "Minikube not found. Installing..."
+          curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-darwin-amd64
+          sudo install minikube /usr/local/bin/minikube
+        else
+          echo "Minikube already installed."
+        fi
+
+  # Task to check and install kubectl
+  install_kubectl:
+    desc: "Install kubectl if it's not already installed"
+    cmds:
+      - |
+        if ! command -v kubectl &> /dev/null; then
+          echo "kubectl not found. Installing..."
+          curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+        else
+          echo "kubectl already installed."
+        fi
+
+  # Task to check and install Terraform
+  install_terraform:
+    desc: "Install Terraform if it's not already installed"
+    cmds:
+      - |
+        if ! command -v terraform &> /dev/null; then
+          echo "Terraform not found. Installing..."
+          curl -LO https://releases.hashicorp.com/terraform/$(curl -s https://releases.hashicorp.com/terraform/ | grep -Eo '>terraform/[0-9.]+<' | head -1 | cut -d'/' -f2 | tr -d '<>')/terraform_$(curl -s https://releases.hashicorp.com/terraform/ | grep -Eo '>terraform/[0-9.]+<' | head -1 | cut -d'/' -f2 | tr -d '<>')._linux_amd64.zip
+          unzip terraform*.zip
+          sudo mv terraform /usr/local/bin/
+          rm terraform*.zip
+        else
+          echo "Terraform already installed."
+        fi
+
+  # Task to start Minikube with Docker driver and configure add-ons
+  start_minikube:
+    desc: "Start Minikube with Docker driver and enable necessary add-ons"
+    cmds:
+      - minikube start --driver=docker --memory=4096 --cpus=2
+      - minikube addons enable ingress
+
+  build_migrations_image:
+    desc: "Build migrations Docker image"
+    dir: db
+    cmds:
+      - eval $(minikube docker-env) && docker build -t ya-paraktikum-go-cloud-native-workshop-shortener-db-migrations:{{.VERSION}} .
+
+  # Task to build Docker image within Minikube Docker environment
+  build_image:
+    desc: "Build local Docker image in Minikube environment"
+    cmds:
+      - eval $(minikube docker-env) && docker build -t ya-paraktikum-go-cloud-native-workshop-shortener:{{ .VERSION }} .
+
+  # Task to run Terraform for Kubernetes resources
+  apply_terraform:
+    desc: "Initialize and apply Terraform configuration for Kubernetes resources"
+    dir: deploy/terraform
+    cmds:
+      - terraform init
+      - terraform apply -auto-approve -var="app_version={{ .VERSION }}"
+
+  # Task to reset Docker environment to local
+  reset_docker_env:
+    desc: "Reset Docker environment back to local"
+    cmds:
+      - eval $(minikube docker-env -u)
+
+  # High-level setup task to run all setup tasks sequentially
+  setup:
+    desc: "Run all setup tasks to install dependencies, start Minikube, and apply Terraform"
+    cmds:
+      - task: install_minikube
+      - task: install_kubectl
+      - task: install_terraform
+      - task: start_minikube
+      - task: build_migrations_image
+      - task: build_image
+      - task: apply_terraform
+      - task: reset_docker_env
+
+  # Task to stop Minikube
+  stop_minikube:
+    desc: "Stop Minikube"
+    cmds:
+      - minikube stop
+
+  # High-level teardown task to stop Minikube
+  teardown:
+    desc: "Stop Minikube and clean up resources"
+    cmds:
+      - task: stop_minikube
+
+  # Task to build Go binary
+  build:
+    cmds:
+      - CGO_ENABLED=0 go build -ldflags="-s -w -X 'github.com/vokinneberg/ya-practicum-go-cloud-native-workshop/internal/config.Version={{ .VERSION }}'" -o bin/shortener cmd/shortener/main.go
+
+  # Task to build Docker image
+  docker-build:
+    cmds:
+      - docker build -t shortener:{{.VERSION}} .
+
+  # Task to run Go application
+  run:
+    cmds:
+      - go run cmd/shortener/main.go
+
+  # Task to lint Go code
+  lint:
+    cmds:
+      - golangci-lint run
+
+  # Task to run tests
+  test:
+    cmds:
+      - go test -v ./... -coverprofile=coverage.out -covermode=atomic
+
+  # Task to run migrations
+  run-migrations:
+    cmds:
+      - migrate -database postgres://postgres:postgres@localhost:5432/shortener?sslmode=disable -path db/migrations up
+
+  # Task to build migrations Docker image
+  docker-build-migrations:
+    desc: "Build migrations Docker image"
+    dir: db
+    cmds:
+      - docker build -t ya-paraktikum-go-cloud-native-workshop-shortener-db-migrations:{{.VERSION}} -f Dockerfile .
