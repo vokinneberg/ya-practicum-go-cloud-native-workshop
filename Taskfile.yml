@@ -53,7 +53,6 @@ tasks:
     cmds:
       - minikube start --driver=docker --memory=4096 --cpus=2
       - minikube addons enable ingress
-      - minikube addons enable metrics-server
 
   build_migrations_image:
     desc: "Build migrations Docker image"

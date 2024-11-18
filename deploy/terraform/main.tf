@@ -18,7 +18,7 @@ resource "kubernetes_config_map" "shortener_config" {
     ENVIRONMENT     = "development"
     LOG_LEVEL       = "info"
     RUN_MIGRATIONS  = "false"
-    SERVER_ADDRESS  = ":8080"
+    SERVER_ADDRESS  = ":80"
   }
 }
 
@@ -53,7 +53,7 @@ resource "kubernetes_deployment" "shortener" {
           name  = "shortener-container"
           image = "ya-paraktikum-go-cloud-native-workshop-shortener:${var.app_version}"
           port {
-            container_port = 8080
+            container_port = 80
           }
 
           env_from {
@@ -77,7 +77,7 @@ resource "kubernetes_deployment" "shortener" {
           liveness_probe {
             http_get {
               path = "/healthz"
-              port = 8080
+              port = 80
 
               http_header {
                 name = "User-Agent"
@@ -92,7 +92,7 @@ resource "kubernetes_deployment" "shortener" {
           readiness_probe {
             http_get {
               path = "/readyz"
-              port = 8080
+              port = 80
 
               http_header {
                 name = "User-Agent"
@@ -109,7 +109,6 @@ resource "kubernetes_deployment" "shortener" {
 }
 
 resource "kubernetes_service" "shortener_service" {
-  wait_for_load_balancer = true
   metadata {
     name      = "shortener-service"
     namespace = kubernetes_namespace.ya_paraktikum_go_cloud_native.metadata[0].name
@@ -120,37 +119,32 @@ resource "kubernetes_service" "shortener_service" {
     }
     port {
       port        = 80
-      target_port = 8080
+      target_port = 80
     }
     type = "ClusterIP"
   }
 }
 
-resource "kubernetes_ingress" "shortener_ingress" {
+resource "kubernetes_ingress_v1" "shortener_ingress" {
   metadata {
     name      = "shortener-ingress"
     namespace = kubernetes_namespace.ya_paraktikum_go_cloud_native.metadata[0].name
-    annotations = {
-      "nginx.ingress.kubernetes.io/rewrite-target" = "/" # For path rewriting in NGINX ingress
-    }
   }
   spec {
-    backend {
-      service_name = "shortener-service"
-      service_port = 80
-    }
-
+    ingress_class_name = "nginx"
     rule {
       host = "shortener.minikube" # Custom hostname for accessing the service
-
       http {
         path {
+          path = "/*"
           backend {
-            service_name = "shortener-service"
-            service_port = 80
+            service {
+              name = kubernetes_service.shortener_service.metadata[0].name
+              port {
+                number = 80
+              }
+            }
           }
-
-          path = "/" # Routes all traffic to the service
         }
       }
     }
